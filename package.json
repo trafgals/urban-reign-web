@@ -15,7 +15,10 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "report": "node tools/feel-report.mjs",
     "lan-server": "node tools/lan-server.mjs",
-    "signal-broker": "node tools/signal-broker.mjs"
+    "signal-broker": "node tools/signal-broker.mjs",
+    "pages:preview": "wrangler pages dev dist",
+    "pages:deploy": "wrangler pages deploy dist --project-name urban-reign-web",
+    "pages:deploy:preview": "wrangler pages deploy dist --project-name urban-reign-web --branch preview"
   },
   "dependencies": {
     "three": "^0.186.1",
@@ -26,6 +29,7 @@
     "@types/ws": "^8.18.2",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3",
-    "vite": "^7.3.7"
+    "vite": "^7.3.7",
+    "wrangler": "^4.150.0"
   }
 }

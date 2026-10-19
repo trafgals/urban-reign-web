@@ -20,10 +20,31 @@ if '--host' in sys.argv:
     at = sys.argv.index('--host')
     HOST = sys.argv[at + 1]
     del sys.argv[at:at + 2]
-BUILD = os.path.abspath(sys.argv[1])
-DISC = os.path.abspath(sys.argv[2])
-PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 8620
-TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream'}
+BUILD = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 and not sys.argv[1].isdigit() else os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(BUILD, '..'))
+
+# Resolve stock disc and redux disc
+DISC_STOCK = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 and os.path.isfile(sys.argv[2]) else os.path.join(ROOT_DIR, 'Urban Reign.iso')
+DISC_REDUX = os.path.abspath(sys.argv[3]) if len(sys.argv) > 3 and os.path.isfile(sys.argv[3]) else os.path.join(ROOT_DIR, 'Urban Reign Redux 0.4.iso')
+
+# Resolve port
+PORT = 8620
+for arg in sys.argv[1:]:
+    if arg.isdigit():
+        PORT = int(arg)
+        break
+
+TYPES = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.wasm': 'application/wasm',
+    '.data': 'application/octet-stream',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.json': 'application/json',
+    '.css': 'text/css',
+}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -31,8 +52,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
             path = '/ps2web.html'
-        if path == '/disc.iso':
-            return DISC
+        elif path in ('/stock', '/stock/'):
+            path = '/stock/ps2web.html'
+        if path in ('/disc.iso', 'disc.iso'):
+            return DISC_STOCK if os.path.isfile(DISC_STOCK) else None
+        if path in ('/disc_redux.iso', 'disc_redux.iso'):
+            return DISC_REDUX if os.path.isfile(DISC_REDUX) else None
         if path.endswith('/'):
             path += 'index.html'
         name = os.path.normpath(path.lstrip('/'))
@@ -117,5 +142,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         pass
 
 
-print('serving %s and %s on http://%s:%d/' % (BUILD, DISC, HOST, PORT))
+print(f'Serving {BUILD} on http://{HOST}:{PORT}/')
+print(f'  Stock PS2 disc: {DISC_STOCK} (exists: {os.path.isfile(DISC_STOCK)})')
+print(f'  Redux 0.4 disc: {DISC_REDUX} (exists: {os.path.isfile(DISC_REDUX)})')
 http.server.ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()

@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/**/*.test.mjs\"",
+    "test:recomp": "node scripts/test_recomp_browser.mjs",
     "report": "node tools/feel-report.mjs",
     "slice:redux": "node scripts/slice_redux.js",
     "lan-server": "node tools/lan-server.mjs",

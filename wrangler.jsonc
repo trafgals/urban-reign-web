@@ -6,5 +6,11 @@
   "assets": {
     "directory": "./recomp-web",
     "binding": "ASSETS"
-  }
+  },
+  "r2_buckets": [
+    {
+      "binding": "DISCS",
+      "bucket_name": "urban-reign-discs"
+    }
+  ]
 }

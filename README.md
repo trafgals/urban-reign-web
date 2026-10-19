@@ -3,11 +3,10 @@
 # Urban Reign Web & Redux 0.4
 
 [![Deploy to GitHub Pages](https://github.com/trafgals/urban-reign-web/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/trafgals/urban-reign-web/actions/workflows/deploy-pages.yml)
-[![Tests](https://img.shields.io/badge/tests-277%20passed-brightgreen)](file:///c:/code/trafgals/urban-reign-web/test)
-[![Typecheck](https://img.shields.io/badge/typecheck-tsc%20clean-blue)](file:///c:/code/trafgals/urban-reign-web/tsconfig.json)
+[![Tests](https://img.shields.io/badge/tests-5%20passed-brightgreen)](file:///c:/code/trafgals/urban-reign-web/test)
 [![WebGPU](https://img.shields.io/badge/WebGPU-hardware%2060fps-orange)](https://trafgals.github.io/urban-reign-web/)
 
-Hardware-accelerated 60Hz browser ports and deterministic 3D brawler engine for **Urban Reign** (Namco, 2005) and **Urban Reign Redux 0.4** (community mod by **Jasonafex**).
+Hardware-accelerated 60Hz WebAssembly browser ports for **Urban Reign** (Namco, 2005) and **Urban Reign Redux 0.4** (community mod by **Jasonafex**).
 
 Play instantly in any modern browser (Google Chrome, Microsoft Edge, Safari) with WebGPU enabled — zero installs, zero plugins.
 
@@ -71,43 +70,27 @@ Phones and tablets automatically display an on-screen arcade overlay with dual t
 
 ---
 
-## 🛠️ Developer Setup & 4-Gate Quality Verification
+## 🛠️ Developer Setup & Quality Verification
 
-This repository adheres to the **4-Gate Verification Rule** (see [`AGENTS.md`](AGENTS.md)):
+This repository adheres to the **Quality Verification Gates** (see [`AGENTS.md`](AGENTS.md)):
 
 ```bash
 # Install dependencies
 npm install
 
-# Gate 1: Determinism, replay, and architecture test suite (277 tests)
+# Gate 1: Disc streaming, chunk decompression, and music preservation tests
 npm test
 
-# Gate 2: Zero TypeScript diagnostics
-npm run typecheck
-
-# Gate 3: Production Vite client bundle
-npm run build
-
-# Gate 4: Declared vs measured frame data & combat report (103 moves)
-npm run report
-
-# Automated Headless Chrome WebGPU Integration Test
+# Gate 2: Automated Headless Chrome WebGPU Integration Test (verifies past frame 2,626)
 npm run test:recomp
 
 # Disc Slicing Tooling
 npm run slice:redux   # Slices Redux 0.4 ISO into Brotli chunks in recomp-web/chunks/redux
 npm run slice:retail  # Slices Retail ISO into Brotli chunks in ../urban-reign-retail/chunks/retail
+
+# Local Development Server
+npm run serve         # Serves recomp-web at http://localhost:8620 with COOP/COEP headers
 ```
-
----
-
-## 🏙️ Deterministic Simulation Engine (`src/`)
-
-In addition to WebAssembly PS2 recompilation, this repository contains a bespoke, ground-up TypeScript deterministic 60Hz 3D multiplayer brawler simulation (`src/sim`, `src/combat`, `src/arena`):
-- **Free-Roam 3D Brawling**: 4 simultaneous fighters in FFA or 2v2 Team Battle.
-- **Strict Separation**: Pure integer-tick simulation with zero DOM or Three.js dependencies in the core loop.
-- **Rollback Netcode**: Peer-to-peer and local relay networking over WebRTC DataChannels and WebSockets.
-- **House LAN Mode**: Run `npm run lan-server` to host local multiplayer with on-screen QR codes for instantaneous phone/tablet joining.
 
 ---
 
@@ -126,4 +109,4 @@ If you prefer playing offline in the PCSX2 emulator:
 
 * **Urban Reign Redux 0.4**: Community mod engineered by **Jasonafex**.
 * **Urban Reign**: Original game copyright © 2005 Bandai Namco Entertainment Inc.
-* This repository hosts web recompilations, tooling, and deterministic simulation code. No affiliation or endorsement by the original publisher is implied.
+* This repository hosts WebAssembly web recompilations, disc chunk streaming tooling, and setup support. No affiliation or endorsement by the original publisher is implied.

@@ -38,61 +38,29 @@ When a subagent reports back:
 
 ## 3. Core Architectural Invariants
 
-### 3.1 Strict Separation of Simulation vs. Presentation
-- **Simulation Core (`src/combat/`, `src/sim/`, `src/arena/`)**:
-  - Deterministic 60Hz integer-tick fixed simulation (`fixedUpdate(dt = 1/60)`).
-  - All moves, archetypes, chains, and stages are pure data (`MOVESET`, `CHAINS`, `CharacterArchetype`, `StageDef`).
-  - **ZERO dependencies on DOM, Three.js, WebGL, or Web Audio APIs.** The simulation must run identically in headless Node test runners, replay diffing tools, and network peers.
-- **Presentation Layer (`src/render/`, `src/audio/`, `src/ui/`, `src/camera/`)**:
-  - Visuals, procedural strike/grapple poses, particle VFX, camera tracking, Web Audio sound synthesis, HUD, and 3D urban stage geometry.
-  - Consumes event streams (`HitEvent`, `WallImpact`, `DodgeEvent`, `SpaEvent`) emitted by the sim; **MUST NEVER** mutate or feed back into simulation state.
-  - Headless/Node-safe: All audio and DOM access must gracefully no-op when `AudioContext`, `window`, or `document` are undefined.
-
-### 3.2 Determinism & Replay Fidelity
-- The simulation must remain bit-identical across runs, platforms, and display refresh rates (30Hz, 60Hz, 120Hz, 144Hz, 240Hz).
-- Never use wall-clock time (`Date.now()`, `performance.now()`) inside physics, combat, or input buffering.
-- `MatchRunner.stateHash()` must cover every state property that influences future ticks (positions, velocities, state, stateFrame, health, spaMeter, eliminated, juggleCount, hitstop, hitConnect, stunRemaining, blockstunLeft, facing, currentMove, targetLockedSlot).
-
-### 3.3 Networking & Rollback Netcode (`src/net/`)
-- **Deterministic Snapshots**: `saveSnapshot(runner)` and `restoreSnapshot(runner, snapshot)` must achieve exact round-trip fidelity:
-  $$\text{stateHash}(\text{restore}(\text{save}(runner))) \equiv \text{stateHash}(runner)$$
-- **Speculative Rollback**: Local player executes with 0 input delay. Remote peers are predicted (repeating last known input). When remote packets arrive, if predictions differ, rewind to the earliest poisoned tick, apply the verified inputs, re-simulate forward with `runner.step()`, and re-snapshot on the corrected lineage.
-- **House LAN Auto-Discovery & Zero-Config Access**:
-  - Hosted locally via Vite/Node server with WebSocket relay.
-  - Provides LAN IP address and on-screen QR code so players anywhere in the house can open the browser on phone/tablet/laptop.
-  - Supports on-screen virtual touch arcade controls for mobile devices, physical Gamepads (via Gamepad API), and split keyboards.
+### 3.1 WebAssembly & Hardware WebGPU Presentation (`recomp-web/`)
+- **Authentic PS2 Engine (`recomp-web/ps2web.wasm`, `ps2web.js`)**:
+  - Recompiled C++ translation units (465 units, 7,161 functions, 631,087 instructions) capturing all 811 indirect function pointer entry points from `SLUS_212.09`.
+  - Runs with real hardware WebGPU acceleration rasterizing GS registers at a rock-solid 60Hz.
+  - Native SPU2 audio synthesizer and CDVD stream parser.
+- **On-Demand Brotli Disc Streaming (`recomp-web/chunks/`)**:
+  - Slices DVD ISO into 2 MB chunks compressed with Brotli (Quality 9), fitting under GitHub Pages' 1,000 MB deployment ceiling.
+  - 100% of all 73 SPU2 BGM soundtrack streams preserved (`0x800007fc` stream magic).
+  - Fast-path zero chunk omission ensures unmapped DVD space consumes 0 MB of bandwidth or disk.
+- **Cutscene Auto-Skip**:
+  - Detects stripped MPEG video ranges (`0x000001ba`, sectors `2,301,378,000` to `3,063,786,000`) and pulses controller `Start` (`1 << 3`) to immediately transition past blank screens.
+- **Memory Card Persistence**:
+  - 8 MB PS2 memory card mounted to IndexedDB via Emscripten `IDBFS` with `navigator.storage?.persist?.()` eviction guard and 1-click `.ps2` export/import.
 
 ---
 
-## 4. The 4-Gate Verification Rule
+## 4. Verification Gates
 
-Before any phase or feature change is considered complete and merged to `main`, all four gates must pass:
+Before any change is considered complete and merged to `main`, the test gates must pass:
 
 1. **`npm test`**:
-   - All test suites must pass 100% with 0 failures.
-   - Any new mechanic, archetype, stage, or netcode feature must include a dedicated automated test suite in `test/` wired into `package.json`.
-2. **`npm run typecheck`**:
-   - Zero TypeScript diagnostics (`tsc --noEmit`).
-3. **`npm run build`**:
-   - Production Vite client bundle must compile cleanly (`tsc && vite build`).
-4. **`npm run report`**:
-   - Combat and frame-data balance report must confirm zero discrepancies between theoretical moveset data and measured simulation outcomes.
-
----
-
-## 5. Urban Reign Game Design Reference
-
-Urban Reign is modeled on Namco's 2005 3D multiplayer brawler engine:
-- **Free-Roam 3D Arena & Multi-Opponent Brawling**: Unconstrained 3D movement in urban stages (alleyways, parking lots, warehouses). Support for 4 simultaneous combatants in Free-For-All or 2v2 Tag teams.
-- **Target Locking & Seamless Target Switching**: Dedicated target cycle (L2/R2 / bumper / stick flick) allowing attacks to redirect mid-string across multiple surrounding adversaries.
-- **4-Way Directional Branching Combos**: Directional attacks (Neutral, Up, Down, Side) with branching strings, aerial launchers, low sweeps, staggers, and knockbacks (sourced directly from `runtime/combat-trial13/spec.py`).
-- **High/Low Dodge & Reversals**:
-  - Neutral/Up Dodge: slips and counters high/mid strikes.
-  - Down Dodge: low parry / evasive hop over sweeps.
-  - Reversals: Frame-perfect timing on incoming impacts executes immediate counter-throws.
-- **Grabs & Ground Control**: High/low standing grapples, behind-the-back tackles, and grounded mount attacks.
-- **Special Arts (SPA Gauge)**:
-  - SPA 1 (Lethal single-target strike).
-  - SPA 2 (360-degree crowd clearer / emergency escape).
-  - SPA 3 / Dual SPA (Tag-team beatdown).
-- **Weapons & Environment Interactions**: Bats, pipes, blades, wall runs, rebound kicks, and wall-splat bounces.
+   - `test/disc-chunk-driver.test.mjs` must pass 100% verifying chunk streaming, decompression, zero-fill fast path, LRU caching, and 100% music preservation.
+2. **`npm run test:recomp`**:
+   - Automated Headless Chrome WebGPU integration test verifying that the emulator boots, initializes chunk streaming, skips stripped video sequences, and executes past frame 2,626 without halting.
+3. **Disc Slicing Integrity**:
+   - `scripts/slice_redux.js` and `scripts/slice_retail.js` must produce valid manifests and chunks strictly below the 1,000 MB limit.

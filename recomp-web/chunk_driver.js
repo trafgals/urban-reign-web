@@ -85,11 +85,13 @@ export class ChunkDiscDriver {
 
       let decompressed;
       if (this.format === 'brotli') {
+        const ab = await resp.arrayBuffer();
+        const raw = new Uint8Array(ab);
         let nativeSuccess = false;
-        if (typeof DecompressionStream !== 'undefined' && resp.body) {
+        if (typeof DecompressionStream !== 'undefined') {
           try {
             const ds = new DecompressionStream('brotli');
-            const stream = resp.body.pipeThrough(ds);
+            const stream = new Blob([ab]).stream().pipeThrough(ds);
             const arrayBuf = await new Response(stream).arrayBuffer();
             decompressed = new Uint8Array(arrayBuf);
             nativeSuccess = true;
@@ -98,15 +100,16 @@ export class ChunkDiscDriver {
           }
         }
         if (!nativeSuccess) {
-          const ab = await resp.arrayBuffer();
-          const raw = new Uint8Array(ab);
-          if (typeof globalThis.BrotliDecode === 'function') {
+          if (typeof globalThis.BrotliDecode?.decompress === 'function') {
+            decompressed = globalThis.BrotliDecode.decompress(raw);
+          } else if (typeof globalThis.BrotliDecode === 'function') {
             decompressed = globalThis.BrotliDecode(raw);
           } else if (typeof globalThis.brotliDecompress === 'function') {
             decompressed = globalThis.brotliDecompress(raw);
           } else if (typeof globalThis.zlibBrotliDecompress === 'function') {
             decompressed = globalThis.zlibBrotliDecompress(raw);
           } else {
+            console.error('No Brotli decompressor available for chunk', chunkIndex);
             decompressed = raw;
           }
         }

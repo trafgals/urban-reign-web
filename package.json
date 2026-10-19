@@ -22,6 +22,8 @@
     "pages:deploy:preview": "wrangler pages deploy dist --project-name urban-reign-web --branch preview"
   },
   "dependencies": {
+    "brotli": "^2.1.0",
+    "brotli-dec-wasm": "^2.3.2",
     "three": "^0.186.1",
     "ws": "^8.22.0"
   },

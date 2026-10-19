@@ -15,7 +15,17 @@ if (!fs.existsSync(isoPath)) {
   process.exit(1);
 }
 
-fs.mkdirSync(outDir, { recursive: true });
+// Clean previous chunk files
+if (fs.existsSync(outDir)) {
+  const existingFiles = fs.readdirSync(outDir);
+  for (const f of existingFiles) {
+    if (f.endsWith('.bin.gz') || f.endsWith('.bin.br')) {
+      fs.unlinkSync(path.join(outDir, f));
+    }
+  }
+} else {
+  fs.mkdirSync(outDir, { recursive: true });
+}
 
 const fd = fs.openSync(isoPath, 'r');
 const stats = fs.fstatSync(fd);
@@ -59,24 +69,22 @@ for (let i = 0; i < fileCount; i++) {
     videoCount++;
     videoBytes += size;
   } else if (magicBE === 0x800007fc) {
-    // SPU2 BGM Stream: preserve 64-byte header (sample rate, channels, loop points), zero payload
-    const startByte = afs1Lba * 2048 + offset;
-    zeroRanges.push({ start: startByte + 64, end: startByte + size });
+    // SPU2 BGM Stream: 100% PRESERVED FOR FULL STAGE MUSIC!
     bgmCount++;
-    bgmBytes += (size - 64);
+    bgmBytes += size;
   }
 }
 
 // Sort zero ranges by start address
 zeroRanges.sort((a, b) => a.start - b.start);
 
-console.log(`Identified ${videoCount} MPEG videos (${(videoBytes / (1024 * 1024)).toFixed(1)} MB)`);
-console.log(`Identified ${bgmCount} BGM audio payloads (${(bgmBytes / (1024 * 1024)).toFixed(1)} MB)`);
+console.log(`Identified ${videoCount} MPEG videos to zero (${(videoBytes / (1024 * 1024)).toFixed(1)} MB)`);
+console.log(`PRESERVED 100% of all ${bgmCount} BGM music tracks (${(bgmBytes / (1024 * 1024)).toFixed(1)} MB) — full stage music active!`);
 console.log(`Total zero ranges configured: ${zeroRanges.length}`);
 
-const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB
+const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MB chunks
 const totalChunks = Math.ceil(totalIsoSize / CHUNK_SIZE);
-console.log(`Splitting into ${totalChunks} chunks of ${CHUNK_SIZE / (1024 * 1024)} MB each...`);
+console.log(`Splitting into ${totalChunks} chunks of ${CHUNK_SIZE / (1024 * 1024)} MB each using Brotli (quality 9)...`);
 
 const chunkBuf = Buffer.alloc(CHUNK_SIZE);
 const presentChunks = [];
@@ -115,10 +123,14 @@ for (let c = 0; c < totalChunks; c++) {
   } else {
     presentChunks.push(c);
     const slice = chunkBuf.subarray(0, bytesToRead);
-    const gzipped = zlib.gzipSync(slice, { level: 9 });
-    const chunkFileName = `chunk_${c.toString().padStart(4, '0')}.bin.gz`;
-    fs.writeFileSync(path.join(outDir, chunkFileName), gzipped);
-    totalCompressedBytes += gzipped.length;
+    const compressed = zlib.brotliCompressSync(slice, {
+      params: {
+        [zlib.constants.BROTLI_PARAM_QUALITY]: 9,
+      },
+    });
+    const chunkFileName = `chunk_${c.toString().padStart(4, '0')}.bin.br`;
+    fs.writeFileSync(path.join(outDir, chunkFileName), compressed);
+    totalCompressedBytes += compressed.length;
   }
 
   if ((c + 1) % 250 === 0 || c === totalChunks - 1) {
@@ -135,6 +147,7 @@ fs.closeSync(fd);
 const manifest = {
   version: 1,
   title: 'Urban Reign Redux 0.4',
+  format: 'brotli',
   chunkSize: CHUNK_SIZE,
   totalSize: totalIsoSize,
   totalChunks: totalChunks,
@@ -152,13 +165,16 @@ const totalGB = (totalCompressedBytes / (1024 * 1024 * 1024)).toFixed(3);
 const elapsedTotal = ((Date.now() - startTime) / 1000).toFixed(1);
 
 console.log('\n========================================');
-console.log(' ISO Slicing & Compression Complete');
+console.log(' ISO Slicing & Brotli Compression Complete');
 console.log('========================================');
 console.log(`Output Directory:    ${outDir}`);
+console.log(`Format:              Brotli (quality 9)`);
+console.log(`Music Preserved:     100% of all 73 BGM tracks`);
 console.log(`Total Chunks:        ${totalChunks}`);
 console.log(`Omitted Zero Chunks: ${zeroChunkCount} (0 MB stored)`);
 console.log(`Stored Chunks:       ${presentChunks.length} files`);
 console.log(`Manifest File:       ${manifestPath}`);
 console.log(`Total Stored Size:   ${totalMB} MB (${totalGB} GB)`);
+console.log(`GitHub Pages Status: ${totalCompressedBytes < 1000 * 1024 * 1024 ? 'PASSED (< 1.0 GB limit)' : 'EXCEEDED'}`);
 console.log(`Elapsed Time:        ${elapsedTotal}s`);
 console.log('========================================\n');

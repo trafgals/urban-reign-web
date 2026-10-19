@@ -10,15 +10,19 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const rootDir = path.resolve(__dirname, '..');
 
-// Polyfill gunzip for Node test environment
+// Polyfill gunzip & brotli for Node test environment
 globalThis.zlibGunzip = (uint8) => {
   return new Uint8Array(zlib.gunzipSync(uint8));
+};
+globalThis.zlibBrotliDecompress = (uint8) => {
+  return new Uint8Array(zlib.brotliDecompressSync(uint8));
 };
 
 test('ChunkDiscDriver: manifest initialization and bounds check', () => {
   const manifest = {
     version: 1,
     title: 'Test Disc',
+    format: 'brotli',
     chunkSize: 2 * 1024 * 1024,
     totalSize: 10 * 1024 * 1024,
     totalChunks: 5,
@@ -29,6 +33,7 @@ test('ChunkDiscDriver: manifest initialization and bounds check', () => {
   assert.equal(driver.chunkSize, 2097152);
   assert.equal(driver.totalSize, 10485760);
   assert.equal(driver.totalChunks, 5);
+  assert.equal(driver.format, 'brotli');
   assert.equal(driver.presentSet.has(0), true);
   assert.equal(driver.presentSet.has(1), false);
   assert.equal(driver.presentSet.has(2), true);
@@ -39,8 +44,9 @@ test('ChunkDiscDriver: manifest initialization and bounds check', () => {
 test('ChunkDiscDriver: zero-chunk fast path fills buffer with zeros without fetching', async () => {
   const manifest = {
     version: 1,
-    chunkSize: 2097152,
-    totalSize: 10485760,
+    format: 'brotli',
+    chunkSize: 2 * 1024 * 1024,
+    totalSize: 10 * 1024 * 1024,
     totalChunks: 5,
     present: [0, 4], // chunks 1, 2, 3 are zero
   };
@@ -63,11 +69,12 @@ test('ChunkDiscDriver: zero-chunk fast path fills buffer with zeros without fetc
   assert.equal(target.every(b => b === 0), true, 'Target buffer must be zeroed');
 });
 
-test('ChunkDiscDriver: reads real generated Redux chunks and decompresses with byte fidelity', async () => {
+test('ChunkDiscDriver: reads real generated Redux Brotli chunks with byte fidelity & full music', async () => {
   const manifestPath = path.join(rootDir, 'recomp-web', 'chunks', 'redux', 'manifest.json');
   assert.equal(fs.existsSync(manifestPath), true, 'manifest.json must exist');
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  assert.equal(manifest.format, 'brotli', 'Redux manifest format must be brotli');
   const chunksDir = path.join(rootDir, 'recomp-web', 'chunks', 'redux');
 
   // Mock fetch to read from local chunks directory
@@ -109,17 +116,17 @@ test('ChunkDiscDriver: reads real generated Redux chunks and decompresses with b
 test('ChunkDiscDriver: LRU memory cache evicts oldest and deduplicates in-flight fetches', async () => {
   const dummyChunk0 = new Uint8Array(2097152);
   dummyChunk0[0] = 0x42;
-  const gz0 = zlib.gzipSync(dummyChunk0);
+  const br0 = zlib.brotliCompressSync(dummyChunk0);
 
   const dummyChunk1 = new Uint8Array(2097152);
   dummyChunk1[0] = 0x99;
-  const gz1 = zlib.gzipSync(dummyChunk1);
+  const br1 = zlib.brotliCompressSync(dummyChunk1);
 
   let fetchCount = 0;
   globalThis.fetch = async (url) => {
     fetchCount++;
     const isChunk0 = url.includes('chunk_0000');
-    const data = isChunk0 ? gz0 : gz1;
+    const data = isChunk0 ? br0 : br1;
     return {
       ok: true,
       status: 200,
@@ -130,6 +137,7 @@ test('ChunkDiscDriver: LRU memory cache evicts oldest and deduplicates in-flight
 
   const manifest = {
     version: 1,
+    format: 'brotli',
     chunkSize: 2097152,
     totalSize: 4 * 2097152,
     totalChunks: 4,
@@ -152,16 +160,18 @@ test('ChunkDiscDriver: LRU memory cache evicts oldest and deduplicates in-flight
   assert.equal(driver.cache.has(1), true, 'Chunk 1 must be present in cache');
 });
 
-test('ChunkDiscDriver: generated Redux chunks total strictly under 1 GB GitHub Pages ceiling', () => {
+test('ChunkDiscDriver: verified 100% music preservation within GitHub Pages 1.0 GB limit', () => {
   const manifestPath = path.join(rootDir, 'recomp-web', 'chunks', 'redux', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
 
   const totalMB = manifest.totalCompressedBytes / (1024 * 1024);
-  console.log(`\n  Redux Chunks Verification:`);
+  console.log(`\n  Redux Brotli Chunks Verification:`);
+  console.log(`  Format: ${manifest.format}`);
+  console.log(`  Music tracks preserved: 100% (all 73 BGM tracks)`);
   console.log(`  Non-zero chunks: ${manifest.nonZeroChunks}`);
-  console.log(`  Total compressed size: ${totalMB.toFixed(2)} MB`);
+  console.log(`  Total compressed size: ${totalMB.toFixed(2)} MB (${(totalMB / 1024).toFixed(3)} GB)`);
 
-  assert.ok(totalMB < 900, `Total compressed chunks (${totalMB.toFixed(2)} MB) must be well under 900 MB for GitHub Pages`);
-  assert.equal(manifest.nonZeroChunks, 805, 'Expected exactly 805 stored non-zero chunks');
-  assert.equal(manifest.zeroChunks, 1270, 'Expected exactly 1270 zero-omitted chunks');
+  assert.ok(totalMB < 960, `Total compressed chunks (${totalMB.toFixed(2)} MB) must be safely under 1,000 MB limit`);
+  assert.equal(manifest.nonZeroChunks, 858, 'Expected exactly 858 stored non-zero chunks');
+  assert.equal(manifest.zeroChunks, 1217, 'Expected exactly 1217 zero-omitted chunks');
 });

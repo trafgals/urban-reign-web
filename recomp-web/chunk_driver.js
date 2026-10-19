@@ -20,6 +20,7 @@ export class ChunkDiscDriver {
   constructor(manifest, baseUrl = '', maxCacheSize = 16) {
     this.version = manifest.version || 1;
     this.title = manifest.title || 'PS2 Disc';
+    this.format = manifest.format || 'gzip';
     this.chunkSize = manifest.chunkSize || 2 * 1024 * 1024;
     this.totalSize = manifest.totalSize || 0;
     this.totalChunks = manifest.totalChunks || Math.ceil(this.totalSize / this.chunkSize);
@@ -74,7 +75,8 @@ export class ChunkDiscDriver {
     // Launch fetch
     this.networkFetches++;
     const promise = (async () => {
-      const fileName = `chunk_${chunkIndex.toString().padStart(4, '0')}.bin.gz`;
+      const ext = this.format === 'brotli' ? '.bin.br' : '.bin.gz';
+      const fileName = `chunk_${chunkIndex.toString().padStart(4, '0')}${ext}`;
       const url = this.baseUrl + fileName;
       const resp = await fetch(url);
       if (!resp.ok) {
@@ -82,24 +84,53 @@ export class ChunkDiscDriver {
       }
 
       let decompressed;
-      if (typeof DecompressionStream !== 'undefined' && resp.body) {
-        const ds = new DecompressionStream('gzip');
-        const stream = resp.body.pipeThrough(ds);
-        const arrayBuf = await new Response(stream).arrayBuffer();
-        decompressed = new Uint8Array(arrayBuf);
+      if (this.format === 'brotli') {
+        let nativeSuccess = false;
+        if (typeof DecompressionStream !== 'undefined' && resp.body) {
+          try {
+            const ds = new DecompressionStream('brotli');
+            const stream = resp.body.pipeThrough(ds);
+            const arrayBuf = await new Response(stream).arrayBuffer();
+            decompressed = new Uint8Array(arrayBuf);
+            nativeSuccess = true;
+          } catch (_) {
+            nativeSuccess = false;
+          }
+        }
+        if (!nativeSuccess) {
+          const ab = await resp.arrayBuffer();
+          const raw = new Uint8Array(ab);
+          if (typeof globalThis.BrotliDecode === 'function') {
+            decompressed = globalThis.BrotliDecode(raw);
+          } else if (typeof globalThis.brotliDecompress === 'function') {
+            decompressed = globalThis.brotliDecompress(raw);
+          } else if (typeof globalThis.zlibBrotliDecompress === 'function') {
+            decompressed = globalThis.zlibBrotliDecompress(raw);
+          } else {
+            decompressed = raw;
+          }
+        }
       } else {
-        // Fallback for Node test environments or environments without resp.body streaming
-        const ab = await resp.arrayBuffer();
-        if (typeof globalThis.zlibGunzip === 'function') {
-          decompressed = globalThis.zlibGunzip(new Uint8Array(ab));
-        } else if (typeof DecompressionStream !== 'undefined' && typeof Blob !== 'undefined') {
+        // Gzip path
+        if (typeof DecompressionStream !== 'undefined' && resp.body) {
           const ds = new DecompressionStream('gzip');
-          const blob = new Blob([ab]);
-          const stream = blob.stream().pipeThrough(ds);
+          const stream = resp.body.pipeThrough(ds);
           const arrayBuf = await new Response(stream).arrayBuffer();
           decompressed = new Uint8Array(arrayBuf);
         } else {
-          decompressed = new Uint8Array(ab);
+          // Fallback for Node test environments or environments without resp.body streaming
+          const ab = await resp.arrayBuffer();
+          if (typeof globalThis.zlibGunzip === 'function') {
+            decompressed = globalThis.zlibGunzip(new Uint8Array(ab));
+          } else if (typeof DecompressionStream !== 'undefined' && typeof Blob !== 'undefined') {
+            const ds = new DecompressionStream('gzip');
+            const blob = new Blob([ab]);
+            const stream = blob.stream().pipeThrough(ds);
+            const arrayBuf = await new Response(stream).arrayBuffer();
+            decompressed = new Uint8Array(arrayBuf);
+          } else {
+            decompressed = new Uint8Array(ab);
+          }
         }
       }
 

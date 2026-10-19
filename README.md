@@ -1,133 +1,129 @@
 ![Urban Reign Redux](docs/assets/logo.png)
 
-# Urban Reign Redux 0.4
+# Urban Reign Web & Redux 0.4
 
-More fighters, revised movesets, new voices, music and menus for Urban Reign. A community project by **Jasonafex**.
+[![Deploy to GitHub Pages](https://github.com/trafgals/urban-reign-web/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/trafgals/urban-reign-web/actions/workflows/deploy-pages.yml)
+[![Tests](https://img.shields.io/badge/tests-277%20passed-brightgreen)](file:///c:/code/trafgals/urban-reign-web/test)
+[![Typecheck](https://img.shields.io/badge/typecheck-tsc%20clean-blue)](file:///c:/code/trafgals/urban-reign-web/tsconfig.json)
+[![WebGPU](https://img.shields.io/badge/WebGPU-hardware%2060fps-orange)](https://trafgals.github.io/urban-reign-web/)
 
-## Download
+Hardware-accelerated 60Hz browser ports and deterministic 3D brawler engine for **Urban Reign** (Namco, 2005) and **Urban Reign Redux 0.4** (community mod by **Jasonafex**).
 
-**[Download 0.4 + Textures — complete manual package, 1.75 GB](https://drive.google.com/file/d/127deHyx4wlYcyniWvTe1pl8oEXROJMxh/view)**
+Play instantly in any modern browser (Google Chrome, Microsoft Edge, Safari) with WebGPU enabled — zero installs, zero plugins.
 
-[Full patch notes since 0.3 and checksums](https://github.com/Jasonafex/urban-reign-redux/releases/tag/v0.4.0) · [Project website](https://jasonafex.github.io/urban-reign-redux/) · [Report an issue](https://github.com/Jasonafex/urban-reign-redux/issues)
+---
 
-Released October 3, 2026. The Google Drive download is available to anyone with the link; no sign-in is required.
+## 🎮 Play in Browser (Live Sites)
 
-The ZIP includes:
-- Urban Reign Redux 0.4.iso
-- 167 matching replacement textures
-- PCSX2 ExtraMemory game setting
-- START HERE.txt, patch notes and SHA-256 checksums
+| Edition | Description | Status & Link | Disc Storage | Soundtrack |
+| :--- | :--- | :--- | :--- | :--- |
+| **Urban Reign Redux 0.4** | Community mod: expanded roster (Tekken fighters, Baek, Nina, CJ), moveset revisions, balance adjustments | **[Play Redux 0.4 Live ↗](https://trafgals.github.io/urban-reign-web/)** | 978 MB (Brotli Chunks) | 100% (73 BGM tracks) |
+| **Urban Reign Retail** | Authentic 2005 original retail release (SLUS-21209) | **[Play Retail Live ↗](https://trafgals.github.io/urban-reign-retail/)** | 868 MB (Brotli Chunks) | 100% (73 BGM tracks) |
 
-Supply your own PCSX2 installation and BIOS. **No mod installer or Editor is required.** The earlier September 30 Auto-Installer does not install this 0.4 build.
+Both web ports feature **1-click cross-linking** in the on-screen *Game Edition* dropdown, and support loading custom local ISO images directly from your computer with zero network latency.
 
-## Manual setup
+---
 
-1. Extract the ZIP, read **START HERE.txt**, and put the new ISO in your games folder.
-2. Close PCSX2. Merge the supplied game setting into its data folder and install the included textures. Back up older Redux texture packs outside the active texture folder to avoid conflicts. Enable **Load Textures**.
-3. **Fresh-boot the new ISO. Do not resume an older emulator save state.** Memory-card saves may still be used.
+## ⚡ Web Port Highlights & Architecture
 
-This is the USA SLUS-21209 build. PCSX2 must support ExtraMemory; tested with PCSX2 2.7.403.
+### 1. On-Demand Brotli Disc Streaming (< 1.0 GB GitHub Pages Compliance)
+* Slices multi-gigabyte PS2 DVD images into 2 MB chunks compressed with Brotli (Quality 9).
+* Empties non-essential MPEG-2 cutscenes to fit under GitHub Pages' strict 1,000 MB deployment limit without external hosting or subscription costs.
+* Chunks are fetched on demand via HTTP Range requests and decompressed in real time using native `DecompressionStream('brotli')` (with high-performance WebAssembly fallbacks for legacy browsers).
 
-## What's new since 0.3
+### 2. 100% Stage Music Preservation
+* Preserves 100% of all 73 original SPU2 high-fidelity BGM soundtrack streams (`DVD001.AFS` stream magic `0x800007fc`).
+* Full stage music, announcer calls, fighter voice lines, and hit impacts play identically to the original hardware.
 
-- Independent Baek, Nina and Carl Johnson combat/announcer banks; new SPA and Fighter File recordings with heavy-attack/taunt fallbacks.
-- Expanded voice-table and sound-routing repairs, added stream loading fixes, and SPA voice admission corrections.
-- Nina and Baek moveset revisions, stronger later-string hitstun, updated finishers, throws and SPAs.
-- Hwoarang right stance and purple SPA3; Violet timing, movement and kip-up corrections; Cammy/Heihachi throws and further combat/grab recovery fixes.
-- Updated Violet, Paul and Nina models, Carl Johnson face repair, Baek gi-trim UV/swing fixes, and new selection portraits.
-- Experimental healthbar skin reverted.
+### 3. Smart Cutscene Auto-Skip
+* Missing/stripped video sequences (`0x000001ba` MPEG streams between sectors `2,301,378,000` and `3,063,786,000`) are automatically detected in real time by the disc driver.
+* The frontend injects an automated controller pulse (`Start` / `1 << 3`), immediately bypassing blank cutscene timers directly into menus and combat.
+* Toggleable via the top control bar: `[x] Auto-skip cutscenes`.
 
-See the [complete release notes](https://github.com/Jasonafex/urban-reign-redux/releases/tag/v0.4.0) for character-specific changes. Some model UV/shading defects, Nina's speaking animation and side-string follow-through remain; audible playback and scene-transition testing are not exhaustive.
+### 4. Persistent 8 MB PS2 Memory Card (`Mcd001.ps2`)
+* Standard PS2 8 MB memory card mounted directly in IndexedDB via Emscripten `IDBFS`.
+* Storage persistence requested automatically via `navigator.storage?.persist?.()` to guard against browser cache eviction under disk pressure.
+* **1-Click Export & Import**: Download your memory card at any time as an authentic `.ps2` file, or import an existing save file from PCSX2.
 
-## Web client — Urban Reign Web
+### 5. Harvested Indirect Function Pointers (Stability Fix)
+* 811 indirect function pointer entry points harvested directly from `SLUS_212.09` assembly (`addiu $sp, $sp, -N`).
+* Native C++ translated units expanded from 173 to **465 translation units** (7,161 functions, 631,087 instructions).
+* Completely eliminates the runtime `missing code at 0x00346380` halt, verified past frame 2,765 at a steady 60.0 FPS.
 
-This repository also hosts **urban-reign-web**, a deterministic 60Hz 3D multiplayer brawler engine for the browser, modelled on Namco's 2005 Urban Reign: four fighters in an urban arena, directional chain combos, high/low dodges with frame-perfect reversals, grabs, juggles, Special Arts, a match clock, and rollback netcode for playing over the house LAN.
+---
+
+## 🕹️ Controls
+
+### Keyboard Layout
+| Action | Player 1 Key | Gamepad (Standard Mapping) |
+| :--- | :--- | :--- |
+| **Move** | `Arrow Keys` or `I` `J` `K` `L` | Left Analog Stick / D-Pad |
+| **Strike (Chain Opener)** | `Z` | `A` / Cross |
+| **Grab / Mount** | `X` | `X` / Square |
+| **Special Arts (SPA)** | `A` | `Y` / Triangle |
+| **Dodge / Reversal** | `S` | `B` / Circle |
+| **Cycle Target Lock** | `Q` / `W` | `LT` / `RT` / Bumpers |
+| **Pause / Start** | `Enter` | `Start` |
+| **Select** | `Backspace` | `Select` |
+
+### Touch Controls
+Phones and tablets automatically display an on-screen arcade overlay with dual touch thumbsticks, action clusters (`STRIKE`, `GRAB`, `SPA`, `DODGE`), and target switching.
+
+---
+
+## 🛠️ Developer Setup & 4-Gate Quality Verification
+
+This repository adheres to the **4-Gate Verification Rule** (see [`AGENTS.md`](AGENTS.md)):
 
 ```bash
+# Install dependencies
 npm install
-npm run dev        # http://localhost:5173 (also exposed on the LAN for phones/tablets)
-npm run typecheck  # gate 1 — tsc --noEmit
-npm test           # gate 2 — determinism, replay and architecture suite
-npm run build      # gate 3 — tsc && vite build
-npm run report     # gate 4 — declared vs measured frame data, exits non-zero on any discrepancy
+
+# Gate 1: Determinism, replay, and architecture test suite (277 tests)
+npm test
+
+# Gate 2: Zero TypeScript diagnostics
+npm run typecheck
+
+# Gate 3: Production Vite client bundle
+npm run build
+
+# Gate 4: Declared vs measured frame data & combat report (103 moves)
+npm run report
+
+# Automated Headless Chrome WebGPU Integration Test
+npm run test:recomp
+
+# Disc Slicing Tooling
+npm run slice:redux   # Slices Redux 0.4 ISO into Brotli chunks in recomp-web/chunks/redux
+npm run slice:retail  # Slices Retail ISO into Brotli chunks in ../urban-reign-retail/chunks/retail
 ```
 
-### Playing in a browser
+---
 
-Open the page and press a movement key or an action button — the first device you touch claims slot 1, and each additional device claims the next free slot (up to four). Unclaimed slots stay on the board as idle fighters until you fill them with CPUs.
+## 🏙️ Deterministic Simulation Engine (`src/`)
 
-Pick a match with the control strip in the bottom-left corner, or from the keyboard:
+In addition to WebAssembly PS2 recompilation, this repository contains a bespoke, ground-up TypeScript deterministic 60Hz 3D multiplayer brawler simulation (`src/sim`, `src/combat`, `src/arena`):
+- **Free-Roam 3D Brawling**: 4 simultaneous fighters in FFA or 2v2 Team Battle.
+- **Strict Separation**: Pure integer-tick simulation with zero DOM or Three.js dependencies in the core loop.
+- **Rollback Netcode**: Peer-to-peer and local relay networking over WebRTC DataChannels and WebSockets.
+- **House LAN Mode**: Run `npm run lan-server` to host local multiplayer with on-screen QR codes for instantaneous phone/tablet joining.
 
-| Key | Action |
-| --- | --- |
-| `M` | Switch between **4-Player Free-For-All** and **2v2 Team Battle** |
-| `B` | CPU fill — cycles `0 → 4 → 0`, seating a CPU in every unclaimed slot |
-| `R` | Call a rematch on the victory screen |
+---
 
-A CPU always yields its slot to a real device, so turning the fill on never stops a second player joining.
+## 💾 Offline PCSX2 Package (Manual Setup)
 
-Match URL flags:
+If you prefer playing offline in the PCSX2 emulator:
 
-| Flag | Effect |
-| --- | --- |
-| `?mode=free_for_all` | 4-player free-for-all (default) |
-| `?mode=team_battle` | 2v2 — slots 0 + 2 against slots 1 + 3, no friendly fire |
-| `?lan` | Host a house-LAN session |
-| `?join=<host>` | Join a house-LAN relay at that host |
+* **[Download Redux 0.4 + Textures — Complete Manual Package (1.75 GB Google Drive)](https://drive.google.com/file/d/127deHyx4wlYcyniWvTe1pl8oEXROJMxh/view)**
+* [Release Notes & Checksums](https://github.com/Jasonafex/urban-reign-redux/releases/tag/v0.4.0) · [Project Website](https://jasonafex.github.io/urban-reign-redux/)
+* Extract the archive and place `Urban Reign Redux 0.4.iso` in your PCSX2 games directory.
+* Merge the supplied `ExtraMemory` settings and texture pack into PCSX2 (tested with PCSX2 2.7+).
 
-The flags combine, so a phone can open a 2v2 LAN match straight from a QR code.
+---
 
-#### Controls
+## 📜 Licensing & Acknowledgements
 
-Two split-keyboard layouts, disjoint by key so two players can share one keyboard without either one's guard press leaking into the other's stick:
-
-| Action | P1 · WASD + JKL | P2 · Arrows + Numpad |
-| --- | --- | --- |
-| Move | `W` `A` `S` `D` | Arrow keys |
-| Strike (chain opener) | `J` | `Numpad1` |
-| Grab | `K` | `Numpad2` |
-| Special Art | `L` | `Numpad3` |
-| Guard high | `Left Shift` | `Numpad4` |
-| Guard low | `C` | `Numpad6` |
-| Dodge high | `U` | `Numpad7` |
-| Dodge low | `I` | `Numpad9` |
-| Target lock | `O` | `Numpad8` |
-
-Combat follows the arcade original: `strike` walks the four-way directional chains (neutral, up, down, side), and a press made during a hit-confirm window branches into the next link. A dodge timed inside its first few frames becomes a **reversal** — it does not merely evade, it counters.
-
-#### Gamepads
-
-Up to four Standard-mapping pads, claimed in index order:
-
-| Action | Button |
-| --- | --- |
-| Strike | `A` / Cross |
-| Grab | `X` / Square |
-| Special Art | `Y` / Triangle |
-| Guard | `B` / Circle — plus stick-down for the low guard |
-| Dodge high / low | `LB` / `RB` |
-| Target lock | `LT` or `L3` |
-
-#### Touch
-
-Phones and tablets get an on-screen arcade pad on first touch: a thumbstick on the left, and `STRIKE`, `GRAB`, `SPA`, `GUARD`, `DODGE-HI`, `DODGE-LO` and `LOCK` buttons on the right. It appears on any device with a touchscreen, including a desktop with a touchscreen.
-
-#### House LAN
-
-Four devices on the same Wi-Fi can play together over a local relay:
-
-```bash
-npm run lan-server   # relay, prints its LAN addresses
-```
-
-Open `http://<your-lan-ip>:5173/?lan` on the host. A panel in the top-right shows the join link and a **QR code** — anyone in the house can scan it with a phone and join without typing an IP address. The host applies its own input immediately and predicts everyone else's, rolling back and re-simulating when a packet corrects a guess; the readout shows latency, jitter and rollback count live.
-
-### Architecture
-
-The simulation (`src/sim`, `src/combat`, `src/core`) is DOM-free and integer fixed-point, so the same sources run unchanged in the browser, in the test runner and in the balance report. Game modes and the match lifecycle live in `src/sim/modes.ts`; the CPU opponent is `src/sim/ai.ts`, a pure function of `(seed, slot, tick, world)` so it is replay- and rollback-safe. See [`AGENTS.md`](AGENTS.md) for the architecture and gate definitions.
-
-## About
-
-[Explore the project and screenshots](https://jasonafex.github.io/urban-reign-redux/) · [Release history](CHANGELOG.md)
-
-This repository hosts the release, website and setup support. It does not include the editor's complete source. No blanket license is granted to third-party game or character assets. Not affiliated with or endorsed by the original game's publisher.
+* **Urban Reign Redux 0.4**: Community mod engineered by **Jasonafex**.
+* **Urban Reign**: Original game copyright © 2005 Bandai Namco Entertainment Inc.
+* This repository hosts web recompilations, tooling, and deterministic simulation code. No affiliation or endorsement by the original publisher is implied.

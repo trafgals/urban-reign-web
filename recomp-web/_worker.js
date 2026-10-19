@@ -74,6 +74,9 @@ export default {
     newHeaders.set('Cross-Origin-Opener-Policy', 'same-origin');
     newHeaders.set('Cross-Origin-Embedder-Policy', 'require-corp');
     newHeaders.set('Cross-Origin-Resource-Policy', 'same-origin');
+    if (path.startsWith('/chunks/')) {
+      newHeaders.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
     return new Response(response.body, {
       status: response.status,
       headers: newHeaders,

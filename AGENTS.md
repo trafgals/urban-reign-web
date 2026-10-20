@@ -23,6 +23,7 @@ When a subagent reports back:
 
 ### 1.3 The Mandatory Functional Verification Rule (Every User Request)
 For **every single user request**, the agent **MUST** write and execute an automated functional test verifying the exact feature or fix requested before concluding the turn or presenting results to the user.
+- **Test Through to Active 3D Combat**: For all gameplay, emulator, or UI changes, automated tests must drive player inputs (Title -> Profile -> Memory Card -> Mode Select) all the way into active 3D combat (verifying past frame 4,000+ with real-time 3D geometry and HUD rendered), never halting at early boot logos or menus.
 - **Zero Assumptions**: Never assume code or configuration works based solely on static edits, syntax checks, or build passes.
 - **Automated Verification**: Implement and run a test script or harness (e.g., headless Chrome CDP boot/execution test, unit test, simulation tick test) that exercises the exact functionality end-to-end.
 - **Failure Remediation**: If the test fails or uncovers regressions, diagnose the root cause immediately, fix the implementation, and re-run verification until 100% passing.

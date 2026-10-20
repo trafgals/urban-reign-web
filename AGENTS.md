@@ -21,7 +21,13 @@ When a subagent reports back:
 3. **Remediate and Rework**: If any bugs, partial fixes, unaddressed edge cases, or regressions remain, the parent agent **MUST immediately rework and fix them** before proceeding with further phases or user handoff.
 4. **Merge and Push to `main`**: If the subagent created a feature branch or PR, the parent agent must verify the tests, merge the branch into `main`, and push `main` to `origin/main`.
 
-### 1.2 Multi-Agent Hierarchy
+### 1.3 The Mandatory Functional Verification Rule (Every User Request)
+For **every single user request**, the agent **MUST** write and execute an automated functional test verifying the exact feature or fix requested before concluding the turn or presenting results to the user.
+- **Zero Assumptions**: Never assume code or configuration works based solely on static edits, syntax checks, or build passes.
+- **Automated Verification**: Implement and run a test script or harness (e.g., headless Chrome CDP boot/execution test, unit test, simulation tick test) that exercises the exact functionality end-to-end.
+- **Failure Remediation**: If the test fails or uncovers regressions, diagnose the root cause immediately, fix the implementation, and re-run verification until 100% passing.
+
+### 1.4 Multi-Agent Hierarchy
 - **Primary Implementation Engine**: MiniMax `mcode` CLI (`mcode exec --permission full "<prompt>"`) where tokens are free.
 - **Local Fallback Engine**: Local Qwen 3.8B running on Strata (`http://127.0.0.1:8090/v1`) if `mcode` runs out of tokens or is unavailable.
 - **Parent Agent Role**: System architect, reviewer, quality gatekeeper, and release manager. Issues clear high-level goals, audits every commit, and ensures the repo stays clean.
@@ -58,9 +64,11 @@ When a subagent reports back:
 
 Before any change is considered complete and merged to `main`, the test gates must pass:
 
-1. **`npm test`**:
+1. **Mandatory Functional Test (Per User Request)**:
+   - An automated test (headless browser CDP test, integration test, or unit test) specifically verifying the requested functionality must be added/executed and pass 100%.
+2. **`npm test`**:
    - `test/disc-chunk-driver.test.mjs` must pass 100% verifying chunk streaming, decompression, zero-fill fast path, LRU caching, and 100% music preservation.
-2. **`npm run test:recomp`**:
+3. **`npm run test:recomp`**:
    - Automated Headless Chrome WebGPU integration test verifying that the emulator boots, initializes chunk streaming, skips stripped video sequences, and executes past frame 2,626 without halting.
-3. **Disc Slicing Integrity**:
+4. **Disc Slicing Integrity**:
    - `scripts/slice_redux.js` and `scripts/slice_retail.js` must produce valid manifests and chunks strictly below the 1,000 MB limit.

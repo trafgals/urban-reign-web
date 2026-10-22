@@ -37,6 +37,20 @@ For **every single user request**, the agent **MUST** write and execute an autom
 
 ## 2. Execution & Concurrency Rules
 
+### 2.1 The Mandatory Universal Timeout Rule (Timeouts on EVERYTHING)
+**EVERYTHING MUST HAVE A HARD TIMEOUT. NO EXCEPTIONS.** Unbounded waits, indefinite hangs, and missing timeouts are strictly prohibited across all workflows.
+1. **Automated Tests & Test Harnesses**:
+   - Every single test file (`test_*.mjs`, `*.test.js`, CDP scripts, simulation runners, unit tests) **MUST** register a top-level safety timeout (`setTimeout`) upon initialization (maximum 30s to 90s depending on test scope).
+   - If the timeout expires, it **MUST** immediately log the timeout, tear down all child processes (killing browsers, HTTP servers, background processes), close WebSockets, release temp directories, and call `process.exit(1)`.
+2. **Async Operations, Network & CDP Calls**:
+   - All CDP commands (`sendCmd`, `ws.send`), WebSocket messages, HTTP fetches, and IPC requests **MUST** enforce an explicit per-call timeout (default max 5,000ms). Never await a promise or event callback without a rejecting fallback timeout.
+3. **Shell Commands, Child Processes & Background Tasks**:
+   - Any spawned process (`child_process.spawn`, `exec`, Python servers, headless Chrome, CLI compilers, bundlers) **MUST** have an attached watchdog timer or kill signal handler.
+   - Any shell command, background task, or subagent invocation (`mcode exec`, local LLM calls) **MUST** have a finite timeout. Unattended tasks must never run unbounded or block on standard input (`stdin`).
+4. **Interactive Prompts Strictly Prohibited**:
+   - Shell commands and scripts must always be executed with non-interactive flags (e.g., `-Force`, `-y`, `--headless=new`, `stdio: "ignore"` or piped stdin). Commands must never stall waiting for interactive keyboard input.
+
+### 2.2 Execution & Concurrency Invariants
 - **Zero Background Polling**: Agents **MUST NEVER** run busy-wait loops, sleep loops, or status-polling scripts in shells or subagents. Launch asynchronous tasks, stop tool calls, and rely on reactive system notifications when commands complete.
 - **Always Ship on `main`**: All completed and verified work must land on `main` and be pushed to `origin/main`. Working trees must be left clean.
 - **Preserve Documentation Integrity**: Maintain existing inline comments, design rationales, and test suite comments. Do not delete explanatory context.
